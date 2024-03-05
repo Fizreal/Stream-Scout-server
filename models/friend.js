@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose'
 
-export default friendsSchema = new Schema(
+export const friendsSchema = new Schema(
   {
     requester: { type: Schema.Types.ObjectId, ref: 'User' },
     recipient: { type: Schema.Types.ObjectId, ref: 'User' },

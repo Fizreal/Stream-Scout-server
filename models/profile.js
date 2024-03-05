@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose'
 
-export default ProfileSchema = new Schema(
+export const profileSchema = new Schema(
   {
     user: {
       type: Schema.Types.ObjectId,

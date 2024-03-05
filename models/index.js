@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
-import userSchema from './user'
-import profileSchema from './profile'
-import friendsSchema from './friend'
+import { userSchema } from './user.js'
+import { profileSchema } from './profile.js'
+import { friendsSchema } from './friend.js'
 
 export const User = mongoose.model('User', userSchema)
 export const Profile = mongoose.model('Profile', profileSchema)
