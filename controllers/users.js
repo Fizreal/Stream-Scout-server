@@ -13,47 +13,49 @@ export default (socket) => {
         model: 'User'
       }
     })
+
     if (typeof callback === 'function') {
       callback(profile)
     }
   })
 
-  socket.on('check username', async (data, callback) => {
-    try {
-      const profile = await Profile.findOne({ username: data.username })
-      let response = profile ? false : true
+  socket.on('get all profiles', async (callback) => {
+    const profiles = await Profile.find({ user: { $ne: socket.user.id } })
+    if (typeof callback === 'function') {
+      callback(profiles)
+    }
+  })
 
-      if (typeof callback === 'function') {
-        callback({ unique: response })
-      }
-    } catch (error) {
-      console.log(error)
+  socket.on('check username', async (data, callback) => {
+    const profile = await Profile.findOne({ username: data.username })
+    let unique = profile ? false : true
+
+    if (typeof callback === 'function') {
+      callback({ unique: unique })
     }
   })
 
   socket.on('update profile', async (data, callback) => {
     let profile = await Profile.findOne({ user: socket.user.id })
-    try {
-      if (profile) {
-        profile.country = data.country
-        profile.subscriptions = data.subscriptions
-        profile.username = data.username
-        await profile.save()
-      } else {
-        const user = await User.findById(socket.user.id)
-        profile = await Profile.create({
-          user: user._id,
-          country: data.country,
-          subscriptions: data.subscriptions,
-          friends: [],
-          username: data.username
-        })
-      }
-      if (typeof callback === 'function') {
-        callback(profile)
-      }
-    } catch (error) {
-      console.log(error)
+
+    if (profile) {
+      profile.country = data.country
+      profile.subscriptions = data.subscriptions
+      profile.username = data.username
+      await profile.save()
+    } else {
+      const user = await User.findById(socket.user.id)
+      profile = await Profile.create({
+        user: user._id,
+        country: data.country,
+        subscriptions: data.subscriptions,
+        friends: [],
+        username: data.username
+      })
+    }
+
+    if (typeof callback === 'function') {
+      callback(profile)
     }
   })
 
@@ -81,6 +83,7 @@ export default (socket) => {
     await requestedProfile.save()
 
     //callback
+    io.to(requestedProfile.user).emit('friend request', { friendB })
   })
 
   socket.on('accept friend', async (data, callback) => {
@@ -108,6 +111,8 @@ export default (socket) => {
     await friendB.save()
 
     //callback
+
+    io.to(requestedProfile.user).emit('request accepted', { friendB })
   })
 
   socket.on('reject friend', async (data, callback) => {
@@ -127,6 +132,8 @@ export default (socket) => {
     })
 
     //callback
+
+    io.to(requestedProfile.user).emit('request accepted', { userProfile })
   })
 
   socket.on('disconnect', () => {
