@@ -1,4 +1,4 @@
-import { User } from '../models/index.js'
+import { Profile, User } from '../models/index.js'
 import {
   hashPassword,
   comparePassword,
@@ -30,12 +30,10 @@ export const Login = async (req, res) => {
     if (user) {
       let matched = await comparePassword(user.passwordDigest, password)
       if (matched) {
-        let payload = {
-          id: user.id,
-          email: user.email
-        }
+        let profile = await Profile.findOne({ user: user._id })
+        let payload = { id: user._id, email: user.email }
         let token = createToken(payload)
-        return res.send({ user: payload, token })
+        return res.status(200).send({ user: profile, token })
       }
       return res
         .status(400)
@@ -46,4 +44,17 @@ export const Login = async (req, res) => {
     console.log(error)
     res.status(401).send({ status: 'Error', msg: 'An error has occurred' })
   }
+}
+
+export const CheckSession = async (req, res) => {
+  const { payload } = res.locals
+
+  let profile = await Profile.findOne({ user: payload.id })
+  if (!profile) {
+    return res.status(400).send('No profile found')
+  }
+
+  let sessionPayload = { user: profile, token: res.locals.token }
+
+  res.status(200).send(sessionPayload)
 }

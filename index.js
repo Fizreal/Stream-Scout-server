@@ -30,7 +30,7 @@ io.use((socket, next) => {
     if (err) {
       return next(new Error('Authentication error'))
     }
-
+    console.log(decoded)
     socket.user = decoded
     next()
   })
