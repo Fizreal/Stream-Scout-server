@@ -1,18 +1,26 @@
 import { getIO } from '../utils/socket.js'
 
 import { User, Profile, Friend } from '../models/index.js'
+import { get } from 'mongoose'
 
 export default (socket) => {
   const io = getIO()
 
-  socket.on('get profile', async (callback) => {
-    const profile = await Profile.findOne({ user: socket.user.id }).populate({
+  const getProfile = async (id) => {
+    const profile = await Profile.findOne({ user: id }).populate({
       path: 'friends',
       populate: {
         path: 'recipient',
         model: 'User'
       }
     })
+
+    return profile
+  }
+  socket.emit('connected', getProfile(socket.user.id))
+
+  socket.on('get profile', async (callback) => {
+    const profile = await getProfile(socket.user.id)
 
     if (typeof callback === 'function') {
       callback(profile)
@@ -31,7 +39,7 @@ export default (socket) => {
     let unique = profile ? false : true
 
     if (typeof callback === 'function') {
-      callback({ unique: unique })
+      callback(unique)
     }
   })
 
