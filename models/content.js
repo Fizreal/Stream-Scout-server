@@ -1,7 +1,7 @@
 import { Schema } from 'mongoose'
 
 export const contentSchema = new Schema({
-  tmdbId: { type: String, required: true, unique: true },
+  tmdbId: { type: String, required: true },
   title: { type: String, required: true },
   streamingInfo: [
     {

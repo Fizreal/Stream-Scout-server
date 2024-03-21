@@ -1,7 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
 import { User, Profile, Friend } from '../models/index.js'
-import { get } from 'mongoose'
 
 export default (socket) => {
   const io = getIO()
@@ -14,14 +13,19 @@ export default (socket) => {
         model: 'User'
       }
     })
-
     return profile
   }
-  socket.emit('connected', getProfile(socket.user.id))
+
+  getProfile(socket.user.id)
+    .then((profile) => {
+      socket.emit('connected', profile)
+    })
+    .catch((error) => {
+      console.error('Error fetching profile:', error)
+    })
 
   socket.on('get profile', async (callback) => {
     const profile = await getProfile(socket.user.id)
-
     if (typeof callback === 'function') {
       callback(profile)
     }
@@ -35,9 +39,9 @@ export default (socket) => {
   })
 
   socket.on('check username', async (data, callback) => {
-    const profile = await Profile.findOne({ username: data.username })
+    const profile = await Profile.findOne({ username: data })
     let unique = profile ? false : true
-
+    console.log(profile, data, unique)
     if (typeof callback === 'function') {
       callback(unique)
     }
@@ -45,10 +49,9 @@ export default (socket) => {
 
   socket.on('update profile', async (data, callback) => {
     let profile = await Profile.findOne({ user: socket.user.id })
-
     if (profile) {
       profile.country = data.country
-      profile.subscriptions = data.subscriptions
+      profile.subscriptions = data.services
       profile.username = data.username
       await profile.save()
     } else {
@@ -56,7 +59,7 @@ export default (socket) => {
       profile = await Profile.create({
         user: user._id,
         country: data.country,
-        subscriptions: data.subscriptions,
+        subscriptions: data.services,
         friends: [],
         username: data.username
       })

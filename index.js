@@ -10,7 +10,11 @@ import authRouter from './routes/authentication.js'
 
 const app = express()
 const server = http.createServer(app)
-const io = new SocketIO(server)
+const io = new SocketIO(server, {
+  cors: {
+    origin: 'http://localhost:3000'
+  }
+})
 
 app.use(cors())
 app.use(express.json())
@@ -19,18 +23,16 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/auth', authRouter)
 
 app.get('/', (req, res) => {
-  res.send('<h1>Hello world</h1>')
+  res.send('<h1>Server</h1>')
 })
 
 io.use((socket, next) => {
-  // const token = socket.handshake.auth.token
-  const token = socket.handshake.headers.authorization
+  const token = socket.handshake.auth.token
 
   jwt.verify(token, process.env.APP_SECRET, (err, decoded) => {
     if (err) {
       return next(new Error('Authentication error'))
     }
-    console.log(decoded)
     socket.user = decoded
     next()
   })
@@ -43,6 +45,6 @@ if (io) {
   })
 }
 
-server.listen(3000, () => {
-  console.log('listening on *:3000')
+server.listen(3001, () => {
+  console.log('listening on *:3001')
 })

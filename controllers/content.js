@@ -19,11 +19,20 @@ export default (socket) => {
 
   socket.on('create content', async (data, redirectCallback, errorCallback) => {
     try {
-      const content = new Content(data)
-      await content.save()
-
-      if (typeof redirectCallback === 'function') {
+      const content = await Content.findOne({
+        tmdbId: data.tmdbId,
+        type: data.type
+      })
+      if (content) {
         redirectCallback(content._id)
+      } else {
+        delete data._id
+        const newContent = new Content(data)
+        await newContent.save()
+
+        if (typeof redirectCallback === 'function') {
+          redirectCallback(newContent._id)
+        }
       }
     } catch (error) {
       if (typeof errorCallback === 'function') {
