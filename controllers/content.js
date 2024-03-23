@@ -1,6 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
-import { Content } from '../models/index.js'
+import { Content, Watched } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -8,6 +8,9 @@ export default (socket) => {
   socket.on('get content', async (data, callback) => {
     try {
       const content = await Content.findOne({ _id: data.id })
+      const watchedRecords = await Watched.find({ content: content._id })
+      // calculate most common moods and % liked
+
       if (typeof callback === 'function') {
         callback(content)
       }

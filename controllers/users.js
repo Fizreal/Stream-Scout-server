@@ -6,13 +6,20 @@ export default (socket) => {
   const io = getIO()
 
   const getProfile = async (id) => {
-    const profile = await Profile.findOne({ user: id }).populate({
-      path: 'friends',
-      populate: {
-        path: 'recipient',
-        model: 'User'
-      }
-    })
+    const profile = await Profile.findOne({ user: id })
+      .populate({
+        path: 'friends',
+        populate: {
+          path: 'recipient',
+          model: 'User'
+        }
+      })
+      .populate({
+        populate: {
+          path: 'watched',
+          model: 'Watched'
+        }
+      })
     return profile
   }
 
