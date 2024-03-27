@@ -1,6 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
-import { Watchlist, Content, User } from '../models/index.js'
+import { Watchlist, Content, User, Collaborate } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -26,7 +26,10 @@ export default (socket) => {
       const watchlist = await Watchlist.findById(data.watchlist)
         .populate({ path: 'owners', model: 'User' })
         .populate({ path: 'list.content', model: 'Content' })
+      const invites = await Collaborate.find({ watchlist: watchlist._id })
+
       if (typeof callback === 'function') {
+        // include invites in the callback
         callback(watchlist)
       }
     } catch (error) {
