@@ -15,9 +15,10 @@ export default (socket) => {
         }
       })
       .populate({
+        path: 'watched',
         populate: {
-          path: 'watched',
-          model: 'Watched'
+          path: 'content',
+          model: 'Content'
         }
       })
     return profile

@@ -1,6 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
-import { Watchlist, Content, Profile } from '../models/index.js'
+import { Watchlist, Content, User } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -21,11 +21,27 @@ export default (socket) => {
     }
   })
 
+  socket.on('get watchlist', async (data, callback) => {
+    try {
+      const watchlist = await Watchlist.findById(data.watchlist)
+        .populate({ path: 'owners', model: 'User' })
+        .populate({ path: 'list.content', model: 'Content' })
+      if (typeof callback === 'function') {
+        callback(watchlist)
+      }
+    } catch (error) {
+      console.log(error)
+      if (typeof callback === 'function') {
+        callback(null)
+      }
+    }
+  })
+
   socket.on('create watchlist', async (data, callback) => {
     try {
-      const profile = await Profile.findOne({ user: socket.user.id })
+      const user = await User.findById(socket.user.id)
       const watchlist = await Watchlist.create({
-        owners: [profile._id],
+        owners: [user._id],
         name: data.name,
         list: []
         // callback function
@@ -45,6 +61,7 @@ export default (socket) => {
       })
       await watchlist.save()
       // callback function
+      // emit to all owners of the watchlist
     } catch (error) {
       console.log(error)
     }
@@ -66,15 +83,24 @@ export default (socket) => {
       })
       await watchlist.save()
       // callback function
+      // emit to all owners of the watchlist
     } catch (error) {
       console.log(error)
     }
   })
 
-  socket.on('delete watchlist', async (data, callback) => {
+  socket.on('leave watchlist', async (data, callback) => {
     try {
-      await Watchlist.findByIdAndDelete(data.watchlist)
-      // callback function
+      const watchlist = await Watchlist.findById(data.watchlist)
+      watchlist.owners.filter((owner) => String(owner) !== socket.user.id)
+      if (watchlist.owners.length === 0) {
+        await Watchlist.findByIdAndDelete(data.watchlist)
+        // callback function
+      } else {
+        await watchlist.save()
+        // callback function
+        // emit to all owners of the watchlist
+      }
     } catch (error) {
       console.log(error)
     }
@@ -89,6 +115,7 @@ export default (socket) => {
       })
       await watchlist.save()
       // callback function
+      // emit to all owners of the watchlist
     } catch (error) {
       console.log(error)
     }
