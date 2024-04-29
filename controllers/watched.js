@@ -12,6 +12,7 @@ export default (socket) => {
       const watched = await Watched.create({
         content: content._id,
         liked: data.liked,
+        data: data.disliked,
         mood: data.mood
       })
       profile.watched.push(watched._id)
@@ -28,6 +29,7 @@ export default (socket) => {
     try {
       const watched = await Watched.findById(data.watched)
       watched.liked = data.liked
+      watched.disliked = data.disliked
       watched.mood = data.mood
       await watched.save()
       if (typeof callback === 'function') {

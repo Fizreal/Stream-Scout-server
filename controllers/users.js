@@ -6,6 +6,7 @@ export default (socket) => {
   const io = getIO()
 
   const getProfile = async (id) => {
+    console.log('getProfile', id)
     const profile = await Profile.findOne({ user: id })
       .populate({
         path: 'friends',
@@ -67,7 +68,7 @@ export default (socket) => {
       profile = await Profile.create({
         user: user._id,
         country: data.country,
-        subscriptions: data.services,
+        subscriptions: data.subscriptions,
         friends: [],
         username: data.username
       })

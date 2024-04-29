@@ -32,6 +32,7 @@ export const contentSchema = new Schema({
   runtime: { type: Number },
   poster: { type: String, required: true },
   overview: { type: String, required: true },
-  // ratings will be a number with the last two digits representing the decimals
-  rating: { type: Number, required: true }
+  rating: { type: Number, required: true },
+  likes: { type: Number, required: true, min: 0 },
+  dislikes: { type: Number, required: true, min: 0 }
 })
