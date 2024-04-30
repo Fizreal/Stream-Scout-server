@@ -29,10 +29,23 @@ export const contentSchema = new Schema({
   },
   type: { type: String, required: true, enum: ['movie', 'series'] },
   backdrop: { type: String, required: true },
-  runtime: { type: Number },
   poster: { type: String, required: true },
   overview: { type: String, required: true },
   rating: { type: Number, required: true },
   likes: { type: Number, required: true, min: 0 },
-  dislikes: { type: Number, required: true, min: 0 }
+  dislikes: { type: Number, required: true, min: 0 },
+  // movies only
+  runtime: { type: Number },
+  // series only
+  seasons: [
+    {
+      air_date: { type: String },
+      episode_count: { type: Number },
+      name: { type: String },
+      overview: { type: String },
+      poster: { type: String },
+      season_number: { type: Number },
+      rating: { type: Number }
+    }
+  ]
 })

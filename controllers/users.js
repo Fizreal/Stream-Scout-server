@@ -70,6 +70,7 @@ export default (socket) => {
         country: data.country,
         subscriptions: data.subscriptions,
         friends: [],
+        watched: [],
         username: data.username
       })
     }

@@ -8,28 +8,46 @@ export default (socket) => {
   socket.on('add to watched', async (data, callback) => {
     try {
       const profile = await Profile.findOne({ user: socket.user.id })
-      const content = await Content.findById(data.content)
+      const content = await Content.findById(data.contentId)
       const watched = await Watched.create({
         content: content._id,
-        liked: data.liked,
-        data: data.disliked,
-        mood: data.mood
+        liked: false,
+        disliked: false,
+        mood: ''
       })
       profile.watched.push(watched._id)
       await profile.save()
+
+      const updatedProfile = await Profile.findOne({ user: socket.user.id })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
+
       if (typeof callback === 'function') {
-        callback(watched)
+        callback({ success: true, profile: updatedProfile })
       }
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error.message })
+      }
     }
   })
 
-  socket.on('update watched', async (data, callback) => {
+  socket.on('update watched tags', async (data, callback) => {
     try {
       const watched = await Watched.findById(data.watched)
-      watched.liked = data.liked
-      watched.disliked = data.disliked
       watched.mood = data.mood
       await watched.save()
       if (typeof callback === 'function') {
@@ -43,16 +61,35 @@ export default (socket) => {
   socket.on('remove from watched', async (data, callback) => {
     try {
       const profile = await Profile.findOne({ user: socket.user.id })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
+
       profile.watched = profile.watched.filter(
-        (watched) => String(watched) !== data.watched
+        (watched) => watched._id.toString() !== data.watchedId
       )
       await profile.save()
-      await Watched.findByIdAndDelete(data.watched)
+      await Watched.findByIdAndDelete(data.watchedId)
+
       if (typeof callback === 'function') {
-        callback(data.watched)
+        callback({ success: true, profile: profile })
       }
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error.message })
+      }
     }
   })
 }

@@ -1,6 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
-import { Content, Watched } from '../models/index.js'
+import { Content, Profile, Watched } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -9,7 +9,7 @@ export default (socket) => {
     try {
       const content = await Content.findOne({ _id: data.id })
       const watchedRecords = await Watched.find({ content: content._id })
-      // calculate most common moods and % liked
+      // calculate most common moods
 
       if (typeof callback === 'function') {
         callback(content)
@@ -82,30 +82,57 @@ export default (socket) => {
         throw new Error('Content not found')
       }
 
-      const watched = await Watched.findOne({
-        content: content._id,
-        user: socket.request.user._id
-      })
+      const profile = await Profile.findOne({
+        user: socket.user.id
+      }).populate('watched')
 
-      if (!watched) {
-        watched = new Watched({
+      let watchedExists = profile.watched.find(
+        (watched) => watched.content.toString() === content._id.toString()
+      )
+
+      if (watchedExists) {
+        const watched = await Watched.findById(watchedExists._id)
+        if (watched.disliked) {
+          watched.disliked = false
+          content.dislikes -= 1
+        }
+        if (!watched.liked) {
+          content.likes += 1
+          watched.liked = true
+        }
+        await watched.save()
+      } else {
+        const watched = await Watched.create({
           content: content._id,
           liked: true,
           disliked: false,
-          mood: '',
-          user: socket.request.user._id
+          mood: ''
         })
-      } else {
-        watched.liked = true
-        watched.disliked = false
+        profile.watched.push(watched._id)
+        await profile.save()
+        content.likes += 1
       }
 
-      content.likes += 1
       await content.save()
-      await watched.save()
+
+      const updatedProfile = await Profile.findOne({ user: socket.user.id })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
 
       if (typeof callback === 'function') {
-        callback({ success: true, content: content })
+        callback({ success: true, content: content, profile: updatedProfile })
       }
     } catch (error) {
       console.log(error)
@@ -123,30 +150,57 @@ export default (socket) => {
         throw new Error('Content not found')
       }
 
-      const watched = await Watched.findOne({
-        content: content._id,
-        user: socket.request.user._id
-      })
+      const profile = await Profile.findOne({
+        user: socket.user.id
+      }).populate('watched')
 
-      if (!watched) {
-        watched = new Watched({
+      let watchedExists = profile.watched.find(
+        (watched) => watched.content.toString() === content._id.toString()
+      )
+
+      if (watchedExists) {
+        const watched = await Watched.findById(watchedExists._id)
+        if (watched.liked) {
+          content.likes -= 1
+          watched.liked = false
+        }
+        if (!watched.disliked) {
+          watched.disliked = true
+          content.dislikes += 1
+        }
+        await watched.save()
+      } else {
+        const watched = await Watched.create({
           content: content._id,
           liked: false,
           disliked: true,
-          mood: '',
-          user: socket.request.user._id
+          mood: ''
         })
-      } else {
-        watched.liked = false
-        watched.disliked = true
+        profile.watched.push(watched._id)
+        await profile.save()
+        content.dislikes += 1
       }
 
-      content.dislikes += 1
       await content.save()
-      await watched.save()
+
+      const updatedProfile = await Profile.findOne({ user: socket.user.id })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
 
       if (typeof callback === 'function') {
-        callback({ success: true, content: content })
+        callback({ success: true, content: content, profile: updatedProfile })
       }
     } catch (error) {
       console.log(error)
@@ -164,22 +218,44 @@ export default (socket) => {
         throw new Error('Content not found')
       }
 
-      const watched = await Watched.findOne({
-        content: content._id,
+      const profile = await Profile.findOne({
         user: socket.request.user._id
-      })
+      }).populate('watched')
 
-      if (!watched) {
-        throw new Error('Watched record not found')
+      let watchedExists = profile.watched.find(
+        (watched) => watched.content.toString() === content._id.toString()
+      )
+
+      if (watchedExists) {
+        const watched = await Watched.findById(watchedExists._id)
+        if (watched.liked) {
+          content.likes -= 1
+          watched.liked = false
+        }
+        await watched.save()
+        await content.save()
       }
 
-      watched.liked = false
-      content.likes -= 1
-      await content.save()
-      await watched.save()
+      const updatedProfile = await Profile.findOne({
+        user: socket.request.user._id
+      })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
 
       if (typeof callback === 'function') {
-        callback({ success: true, content: content })
+        callback({ success: true, content: content, profile: updatedProfile })
       }
     } catch (error) {
       console.log(error)
@@ -197,22 +273,44 @@ export default (socket) => {
         throw new Error('Content not found')
       }
 
-      const watched = await Watched.findOne({
-        content: content._id,
+      const profile = await Profile.findOne({
         user: socket.request.user._id
-      })
+      }).populate('watched')
 
-      if (!watched) {
-        throw new Error('Watched record not found')
+      let watchedExists = profile.watched.find(
+        (watched) => watched.content.toString() === content._id.toString()
+      )
+
+      if (watchedExists) {
+        const watched = await Watched.findById(watchedExists._id)
+        if (watched.disliked) {
+          content.dislikes -= 1
+          watched.disliked = false
+        }
+        await watched.save()
+        await content.save()
       }
 
-      watched.disliked = false
-      content.dislikes -= 1
-      await content.save()
-      await watched.save()
+      const updatedProfile = await Profile.findOne({
+        user: socket.request.user._id
+      })
+        .populate({
+          path: 'friends',
+          populate: {
+            path: 'recipient',
+            model: 'User'
+          }
+        })
+        .populate({
+          path: 'watched',
+          populate: {
+            path: 'content',
+            model: 'Content'
+          }
+        })
 
       if (typeof callback === 'function') {
-        callback({ success: true, content: content })
+        callback({ success: true, content: content, profile: updatedProfile })
       }
     } catch (error) {
       console.log(error)
