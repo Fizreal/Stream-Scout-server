@@ -1,15 +1,26 @@
 import { getIO } from '../utils/socket.js'
-
 import { Watchlist, Content, User, Collaborate } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
 
-  socket.on('get all watchlists', async (callback) => {
+  const getUserWatchlists = async (userId) => {
     try {
       const watchlists = await Watchlist.find({
         owners: { $in: [socket.user.id] }
       })
+        .populate({ path: 'owners', model: 'User' })
+        .populate({ path: 'list.content', model: 'Content' })
+      return watchlists
+    } catch (error) {
+      console.log(error)
+      return []
+    }
+  }
+
+  socket.on('get all watchlists', async (callback) => {
+    try {
+      const watchlists = await getUserWatchlists(socket.user.id)
       if (typeof callback === 'function') {
         callback(watchlist)
       }
@@ -43,14 +54,46 @@ export default (socket) => {
   socket.on('create watchlist', async (data, callback) => {
     try {
       const user = await User.findById(socket.user.id)
+
+      const checkWatchlist = await Watchlist.findOne({
+        name: data.name,
+        owners: { $in: [user._id] }
+      })
+
+      if (checkWatchlist) {
+        if (typeof callback === 'function') {
+          callback({
+            success: false,
+            error: 'Watchlist already exists with that name'
+          })
+        }
+        return
+      }
+
       const watchlist = await Watchlist.create({
         owners: [user._id],
         name: data.name,
         list: []
-        // callback function
       })
+      if (data.content) {
+        const content = await Content.findById(data.content)
+        watchlist.list.push({
+          content: content._id,
+          order: 1
+        })
+      }
+      await watchlist.save()
+
+      const updatedWatchlists = await getUserWatchlists(socket.user.id)
+
+      if (typeof callback === 'function') {
+        callback({ success: true, watchlists: updatedWatchlists })
+      }
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error })
+      }
     }
   })
 
@@ -63,10 +106,18 @@ export default (socket) => {
         order: watchlist.list.length
       })
       await watchlist.save()
-      // callback function
+
+      const updatedWatchlists = await getUserWatchlists(socket.user.id)
+
+      if (typeof callback === 'function') {
+        callback({ success: true, watchlists: updatedWatchlists })
+      }
       // emit to all owners of the watchlist
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error })
+      }
     }
   })
 

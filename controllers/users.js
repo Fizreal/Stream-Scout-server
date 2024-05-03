@@ -1,6 +1,6 @@
 import { getIO } from '../utils/socket.js'
 
-import { User, Profile, Friend } from '../models/index.js'
+import { User, Profile, Friend, Watchlist } from '../models/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -25,9 +25,25 @@ export default (socket) => {
     return profile
   }
 
-  getProfile(socket.user.id)
-    .then((profile) => {
-      socket.emit('connected', profile)
+  const getWatchlists = async (id) => {
+    const watchlists = await Watchlist.find({
+      owners: { $in: [socket.user.id] }
+    }).populate({
+      path: 'list.content',
+      model: 'Content'
+    })
+    return watchlists
+  }
+
+  const getProfileInformation = async (id) => {
+    const profile = await getProfile(id)
+    const watchlists = await getWatchlists(id)
+    return { profile, watchlists }
+  }
+
+  getProfileInformation(socket.user.id)
+    .then((profileInfo) => {
+      socket.emit('connected', profileInfo)
     })
     .catch((error) => {
       console.error('Error fetching profile:', error)
