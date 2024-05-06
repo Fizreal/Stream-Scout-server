@@ -8,8 +8,9 @@ export default (socket) => {
   socket.on('get content', async (data, callback) => {
     try {
       const content = await Content.findOne({ _id: data.id })
-      const watchedRecords = await Watched.find({ content: content._id })
+
       // calculate most common moods
+      // const watchedRecords = await Watched.find({ content: content._id })
 
       if (typeof callback === 'function') {
         callback(content)
@@ -43,6 +44,7 @@ export default (socket) => {
       } else {
         delete data._id
         const newContent = new Content(data)
+        console.log(newContent)
         await newContent.save()
         callback({ success: true, content: newContent })
       }
@@ -219,7 +221,7 @@ export default (socket) => {
       }
 
       const profile = await Profile.findOne({
-        user: socket.request.user._id
+        user: socket.user.id
       }).populate('watched')
 
       let watchedExists = profile.watched.find(
@@ -237,7 +239,7 @@ export default (socket) => {
       }
 
       const updatedProfile = await Profile.findOne({
-        user: socket.request.user._id
+        user: socket.user.id
       })
         .populate({
           path: 'friends',
@@ -274,7 +276,7 @@ export default (socket) => {
       }
 
       const profile = await Profile.findOne({
-        user: socket.request.user._id
+        user: socket.user.id
       }).populate('watched')
 
       let watchedExists = profile.watched.find(
@@ -292,7 +294,7 @@ export default (socket) => {
       }
 
       const updatedProfile = await Profile.findOne({
-        user: socket.request.user._id
+        user: socket.user.id
       })
         .populate({
           path: 'friends',

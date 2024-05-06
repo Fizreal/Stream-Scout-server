@@ -1,17 +1,32 @@
 import { getIO } from '../utils/socket.js'
-import { Watchlist, Content, User, Collaborate } from '../models/index.js'
+import { Watchlist, Content, Collaborate, Profile } from '../models/index.js'
+import { formatProfileInformation } from '../utils/index.js'
 
 export default (socket) => {
   const io = getIO()
 
   const getUserWatchlists = async (userId) => {
     try {
+      const profile = await Profile.findOne({ user: userId })
+
       const watchlists = await Watchlist.find({
-        owners: { $in: [socket.user.id] }
+        owners: { $in: [profile._id] }
       })
-        .populate({ path: 'owners', model: 'User' })
+        .populate({ path: 'owners', model: 'Profile' })
         .populate({ path: 'list.content', model: 'Content' })
-      return watchlists
+
+      const formattedWatchlists = watchlists.map((watchlist) => {
+        return {
+          id: watchlist._id,
+          owners: watchlist.owners.map((owner) =>
+            formatProfileInformation(owner)
+          ),
+          name: watchlist.name,
+          list: watchlist.list
+        }
+      })
+
+      return formattedWatchlists
     } catch (error) {
       console.log(error)
       return []
@@ -35,8 +50,9 @@ export default (socket) => {
   socket.on('get watchlist', async (data, callback) => {
     try {
       const watchlist = await Watchlist.findById(data.watchlist)
-        .populate({ path: 'owners', model: 'User' })
+        .populate({ path: 'owners', model: 'Profile' })
         .populate({ path: 'list.content', model: 'Content' })
+
       const invites = await Collaborate.find({ watchlist: watchlist._id })
 
       if (typeof callback === 'function') {
@@ -53,11 +69,11 @@ export default (socket) => {
 
   socket.on('create watchlist', async (data, callback) => {
     try {
-      const user = await User.findById(socket.user.id)
+      const profile = await Profile.findOne({ user: socket.user.id })
 
       const checkWatchlist = await Watchlist.findOne({
         name: data.name,
-        owners: { $in: [user._id] }
+        owners: { $in: [profile._id] }
       })
 
       if (checkWatchlist) {
@@ -71,7 +87,7 @@ export default (socket) => {
       }
 
       const watchlist = await Watchlist.create({
-        owners: [user._id],
+        owners: [profile._id],
         name: data.name,
         list: []
       })
@@ -145,8 +161,11 @@ export default (socket) => {
 
   socket.on('leave watchlist', async (data, callback) => {
     try {
+      const profile = await Profile.findOne({ user: socket.user.id })
       const watchlist = await Watchlist.findById(data.watchlist)
-      watchlist.owners.filter((owner) => String(owner) !== socket.user.id)
+      watchlist.owners.filter(
+        (owner) => owner.toString() !== profile._id.toString()
+      )
       if (watchlist.owners.length === 0) {
         await Watchlist.findByIdAndDelete(data.watchlist)
         // callback function

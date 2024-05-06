@@ -2,7 +2,7 @@ import { Schema } from 'mongoose'
 
 export const watchlistSchema = new Schema(
   {
-    owners: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
+    owners: [{ type: Schema.Types.ObjectId, ref: 'Profile', required: true }],
     name: { type: String, required: true },
     list: [
       {
