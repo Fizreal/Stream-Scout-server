@@ -29,11 +29,12 @@ export default (socket) => {
         tmdbId: data.tmdbId,
         type: data.type
       })
-
       if (content) {
-        const containsCountry = content.streamingInfo.find(
-          (stream) => stream.country === data.streamingInfo[0].country
-        )
+        const containsCountry = data.streamingInfo.length
+          ? content.streamingInfo.find(
+              (stream) => stream.country === data.streamingInfo[0].country
+            )
+          : true
 
         if (!containsCountry) {
           content.streamingInfo.push(data.streamingInfo[0])

@@ -1,6 +1,7 @@
 import { getIO } from '../utils/socket.js'
 
 import { User, Profile, Friend, Watchlist } from '../models/index.js'
+import { formatProfileInformation } from '../utils/index.js'
 
 export default (socket) => {
   const io = getIO()
@@ -26,13 +27,31 @@ export default (socket) => {
   }
 
   const getWatchlists = async (id) => {
+    const profile = await Profile.findOne({ user: id })
     const watchlists = await Watchlist.find({
-      owners: { $in: [socket.user.id] }
-    }).populate({
-      path: 'list.content',
-      model: 'Content'
+      owners: { $in: [profile._id] }
     })
-    return watchlists
+      .populate({
+        path: 'list.content',
+        model: 'Content'
+      })
+      .populate({
+        path: 'owners',
+        model: 'Profile'
+      })
+
+    const formattedWatchlists = watchlists.map((watchlist) => {
+      return {
+        _id: watchlist._id,
+        owners: watchlist.owners.map((owner) =>
+          formatProfileInformation(owner)
+        ),
+        name: watchlist.name,
+        list: watchlist.list
+      }
+    })
+
+    return formattedWatchlists
   }
 
   const getProfileInformation = async (id) => {

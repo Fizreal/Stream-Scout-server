@@ -17,7 +17,7 @@ export default (socket) => {
 
       const formattedWatchlists = watchlists.map((watchlist) => {
         return {
-          id: watchlist._id,
+          _id: watchlist._id,
           owners: watchlist.owners.map((owner) =>
             formatProfileInformation(owner)
           ),
@@ -117,9 +117,12 @@ export default (socket) => {
     try {
       const watchlist = await Watchlist.findById(data.watchlist)
       const content = await Content.findById(data.content)
+
+      const order = watchlist.list.length ? watchlist.list.length + 1 : 1
+
       watchlist.list.push({
         content: content._id,
-        order: watchlist.list.length
+        order: order
       })
       await watchlist.save()
 
@@ -181,16 +184,28 @@ export default (socket) => {
 
   socket.on('reorder watchlist', async (data, callback) => {
     try {
-      const watchlist = await Watchlist.findById(data.watchlist)
-      //expect data to be an object with keys equal to content ids and values equal to new order
+      const watchlist = await Watchlist.findById(data.watchlist._id)
+
+      const updatedOrder = {}
+      data.watchlist.list.forEach((listItem) => {
+        updatedOrder[listItem.content._id] = listItem.order + 1
+      })
+
       watchlist.list.forEach((listItem) => {
-        listItem.order = data.content[listItem.content]
+        listItem.order = updatedOrder[listItem.content.toString()]
       })
       await watchlist.save()
-      // callback function
+
+      if (typeof callback === 'function') {
+        callback({ success: true })
+      }
+
       // emit to all owners of the watchlist
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error })
+      }
     }
   })
 }
