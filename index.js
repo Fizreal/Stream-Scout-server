@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import http from 'http'
 import { Server as SocketIO } from 'socket.io'
-import { init } from './utils/socket.js'
+import { init, addSocket } from './utils/socket.js'
 import startSockets from './controllers/startSockets.js'
 import jwt from 'jsonwebtoken'
 import './db/index.js'
@@ -41,6 +41,7 @@ io.use((socket, next) => {
 if (io) {
   init(io)
   io.on('connect', (socket) => {
+    addSocket(socket.user.id, socket)
     startSockets(socket)
   })
 }
