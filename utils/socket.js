@@ -13,9 +13,8 @@ export const getIO = () => {
 export const addSocket = (userId, socket) => {
   if (socketToUser[userId]) {
     socketToUser[userId].disconnect()
-  } else {
-    socketToUser[userId] = socket
   }
+  socketToUser[userId] = socket
 }
 
 export const getSocket = (userId) => {

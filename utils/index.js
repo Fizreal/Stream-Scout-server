@@ -1,6 +1,8 @@
 export const formatProfileInformation = (profile) => {
   return {
-    id: profile._id,
-    username: profile.username
+    _id: profile._id,
+    username: profile.username,
+    userId: profile.user,
+    country: profile.country
   }
 }

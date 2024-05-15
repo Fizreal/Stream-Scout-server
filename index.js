@@ -41,6 +41,7 @@ io.use((socket, next) => {
 if (io) {
   init(io)
   io.on('connect', (socket) => {
+    console.log(`a user connected ${socket.id}`)
     addSocket(socket.user.id, socket)
     startSockets(socket)
   })

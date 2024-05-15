@@ -13,7 +13,7 @@ export default (socket) => {
         path: 'friends',
         populate: {
           path: 'recipient',
-          model: 'User'
+          model: 'Profile'
         }
       })
       .populate({
@@ -23,11 +23,31 @@ export default (socket) => {
           model: 'Content'
         }
       })
-    return profile
+
+    if (!profile) {
+      return null
+    }
+
+    const formattedFriends = profile.friends.map((friend) => {
+      return {
+        _id: friend._id,
+        recipient: formatProfileInformation(friend.recipient),
+        status: friend.status
+      }
+    })
+
+    const updatedProfile = { ...profile._doc, friends: formattedFriends }
+
+    return updatedProfile
   }
 
   const getWatchlists = async (id) => {
     const profile = await Profile.findOne({ user: id })
+
+    if (!profile) {
+      return null
+    }
+
     const watchlists = await Watchlist.find({
       owners: { $in: [profile._id] }
     })
@@ -39,6 +59,10 @@ export default (socket) => {
         path: 'owners',
         model: 'Profile'
       })
+
+    if (!watchlists) {
+      return null
+    }
 
     const formattedWatchlists = watchlists.map((watchlist) => {
       return {
@@ -60,13 +84,12 @@ export default (socket) => {
     return { profile, watchlists }
   }
 
-  getProfileInformation(socket.user.id)
-    .then((profileInfo) => {
-      socket.emit('connected', profileInfo)
-    })
-    .catch((error) => {
-      console.error('Error fetching profile:', error)
-    })
+  socket.on('get profile information', async (callback) => {
+    const profileInfo = await getProfileInformation(socket.user.id)
+    if (typeof callback === 'function') {
+      callback(profileInfo)
+    }
+  })
 
   socket.on('get profile', async (callback) => {
     const profile = await getProfile(socket.user.id)
@@ -75,26 +98,27 @@ export default (socket) => {
     }
   })
 
-  socket.on('search profiles', async (callback) => {
+  socket.on('search profiles', async (data, callback) => {
     try {
       const profiles = await Profile.find({ user: { $ne: socket.user.id } })
+
       const levenshteinProfiles = profiles
         .map((profile) => {
           const distance = levenshtein.get(profile.username, data.search)
           if (distance / data.search.length < 0.5) {
-            return { ...profile, distance }
+            profile.distance = distance
+            return profile
           } else {
             return null
           }
         })
         .filter((profile) => profile !== null)
-
       const orderedProfiles = levenshteinProfiles.sort(
         (a, b) => a.distance - b.distance
       )
 
       if (typeof callback === 'function') {
-        callback({ success: true, profiles })
+        callback({ success: true, profiles: orderedProfiles })
       }
     } catch (error) {
       console.error('Error searching profiles:', error)
@@ -105,7 +129,7 @@ export default (socket) => {
   })
 
   socket.on('check username', async (data, callback) => {
-    const profile = await Profile.findOne({ username: data })
+    const profile = await Profile.findOne({ username: data.username })
     let unique = profile ? false : true
     console.log(profile, data, unique)
     if (typeof callback === 'function') {
@@ -134,6 +158,20 @@ export default (socket) => {
 
     if (typeof callback === 'function') {
       callback(profile)
+    }
+  })
+
+  socket.on('check online', async (data, callback) => {
+    try {
+      const userSocket = getSocket(data.id)
+      if (typeof callback === 'function') {
+        callback({ online: userSocket ? true : false })
+      }
+    } catch (error) {
+      console.error('Error checking online:', error)
+      if (typeof callback === 'function') {
+        callback({ online: false })
+      }
     }
   })
 
@@ -166,7 +204,6 @@ export default (socket) => {
         await requestedProfile.save()
 
         const updatedUserProfile = await getProfile(socket.user.id)
-        const updatedRequestedProfile = await getProfile(requestedProfile.user)
 
         if (typeof callback === 'function') {
           callback({ success: true, updatedProfile: updatedUserProfile })
@@ -174,6 +211,9 @@ export default (socket) => {
 
         const requestedSocket = getSocket(requestedProfile.user)
         if (requestedSocket) {
+          const updatedRequestedProfile = await getProfile(
+            requestedProfile.user
+          )
           io.to(requestedSocket).emit('profile update', {
             updatedProfile: updatedRequestedProfile
           })
@@ -211,16 +251,16 @@ export default (socket) => {
       await friendB.save()
 
       const updatedUserProfile = await getProfileInformation(socket.user.id)
-      const updatedRequesterProfile = await getProfileInformation(
-        requesterProfile.user
-      )
 
       if (typeof callback === 'function') {
-        callback({ success: true, updatedUserProfile })
+        callback({ success: true, updatedProfile: updatedUserProfile })
       }
 
       const requesterSocket = getSocket(requesterProfile.user)
       if (requesterSocket) {
+        const updatedRequesterProfile = await getProfileInformation(
+          requesterProfile.user
+        )
         io.to(requesterSocket).emit('profile update', {
           updatedProfile: updatedRequesterProfile
         })
@@ -233,36 +273,53 @@ export default (socket) => {
     }
   })
 
-  socket.on('reject friend', async (data, callback) => {
+  socket.on('delete friend record', async (data, callback) => {
     try {
       const userProfile = await Profile.findOne({ user: socket.user.id })
       const requesterProfile = await Profile.findById(data.requesterId)
 
-      const friendA = await Friend.findOneAndDelete({
+      const friendA = await Friend.findOne({
         requester: userProfile._id,
         recipient: requesterProfile._id
       })
-
-      const friendB = await Friend.findOneAndDelete({
+      const friendB = await Friend.findOne({
         requester: requesterProfile._id,
         recipient: userProfile._id
       })
 
+      if (!friendA || !friendB) {
+        throw new Error('Friend record not found')
+      }
+
+      userProfile.friends = userProfile.friends.filter((friend) => {
+        return friend.toString() !== friendA._id.toString()
+      })
+      requesterProfile.friends = requesterProfile.friends.filter((friend) => {
+        return friend.toString() !== friendB._id.toString()
+      })
+
+      await userProfile.save()
+      await requesterProfile.save()
+
+      await Friend.findByIdAndDelete(friendA._id)
+      await Friend.findByIdAndDelete(friendB._id)
+
       const updatedUserProfile = await getProfile(socket.user.id)
-      const updatedRequesterProfile = await getProfile(requesterProfile.user)
 
       if (typeof callback === 'function') {
-        callback({ success: true, updatedUserProfile })
+        console.log(updatedUserProfile)
+        callback({ success: true, updatedProfile: updatedUserProfile })
       }
 
       const requesterSocket = getSocket(requesterProfile.user)
       if (requesterSocket) {
+        const updatedRequesterProfile = await getProfile(requesterProfile.user)
         io.to(requesterSocket).emit('profile update', {
           updatedProfile: updatedRequesterProfile
         })
       }
     } catch (error) {
-      console.error('Error accepting friend request:', error)
+      console.error('Error deleting friend request:', error)
       if (typeof callback === 'function') {
         callback({ success: false, error: error.message })
       }

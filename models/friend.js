@@ -2,8 +2,8 @@ import { Schema } from 'mongoose'
 
 export const friendsSchema = new Schema(
   {
-    requester: { type: Schema.Types.ObjectId, ref: 'User' },
-    recipient: { type: Schema.Types.ObjectId, ref: 'User' },
+    requester: { type: Schema.Types.ObjectId, ref: 'Profile' },
+    recipient: { type: Schema.Types.ObjectId, ref: 'Profile' },
     status: {
       type: Number,
       enum: [

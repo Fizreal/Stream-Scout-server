@@ -10,7 +10,7 @@ export const profileSchema = new Schema(
     },
     country: { type: String, required: true },
     subscriptions: [{ type: String }],
-    friends: [{ type: Schema.Types.ObjectId, ref: 'Friend', unique: true }],
+    friends: [{ type: Schema.Types.ObjectId, ref: 'Friend' }],
     watched: [{ type: Schema.Types.ObjectId, ref: 'Watched' }],
     username: { type: String, unique: true }
   },
