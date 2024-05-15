@@ -41,60 +41,10 @@ export default (socket) => {
     return updatedProfile
   }
 
-  const getWatchlists = async (id) => {
-    const profile = await Profile.findOne({ user: id })
-
-    if (!profile) {
-      return null
-    }
-
-    const watchlists = await Watchlist.find({
-      owners: { $in: [profile._id] }
-    })
-      .populate({
-        path: 'list.content',
-        model: 'Content'
-      })
-      .populate({
-        path: 'owners',
-        model: 'Profile'
-      })
-
-    if (!watchlists) {
-      return null
-    }
-
-    const formattedWatchlists = watchlists.map((watchlist) => {
-      return {
-        _id: watchlist._id,
-        owners: watchlist.owners.map((owner) =>
-          formatProfileInformation(owner)
-        ),
-        name: watchlist.name,
-        list: watchlist.list
-      }
-    })
-
-    return formattedWatchlists
-  }
-
-  const getProfileInformation = async (id) => {
-    const profile = await getProfile(id)
-    const watchlists = await getWatchlists(id)
-    return { profile, watchlists }
-  }
-
-  socket.on('get profile information', async (callback) => {
-    const profileInfo = await getProfileInformation(socket.user.id)
-    if (typeof callback === 'function') {
-      callback(profileInfo)
-    }
-  })
-
   socket.on('get profile', async (callback) => {
     const profile = await getProfile(socket.user.id)
     if (typeof callback === 'function') {
-      callback(profile)
+      callback({ profile })
     }
   })
 
@@ -215,7 +165,7 @@ export default (socket) => {
             requestedProfile.user
           )
           io.to(requestedSocket).emit('profile update', {
-            updatedProfile: updatedRequestedProfile
+            profile: updatedRequestedProfile
           })
         }
       }
@@ -250,7 +200,7 @@ export default (socket) => {
       )
       await friendB.save()
 
-      const updatedUserProfile = await getProfileInformation(socket.user.id)
+      const updatedUserProfile = await getProfile(socket.user.id)
 
       if (typeof callback === 'function') {
         callback({ success: true, updatedProfile: updatedUserProfile })
@@ -258,11 +208,9 @@ export default (socket) => {
 
       const requesterSocket = getSocket(requesterProfile.user)
       if (requesterSocket) {
-        const updatedRequesterProfile = await getProfileInformation(
-          requesterProfile.user
-        )
+        const updatedRequesterProfile = await getProfile(requesterProfile.user)
         io.to(requesterSocket).emit('profile update', {
-          updatedProfile: updatedRequesterProfile
+          profile: updatedRequesterProfile
         })
       }
     } catch (error) {
@@ -315,7 +263,7 @@ export default (socket) => {
       if (requesterSocket) {
         const updatedRequesterProfile = await getProfile(requesterProfile.user)
         io.to(requesterSocket).emit('profile update', {
-          updatedProfile: updatedRequesterProfile
+          profile: updatedRequesterProfile
         })
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-import { getIO } from '../utils/socket.js'
+import { getIO, getSocket } from '../utils/socket.js'
 import { Watchlist, Content, Collaborate, Profile } from '../models/index.js'
 import { formatProfileInformation } from '../utils/index.js'
 
@@ -33,11 +33,26 @@ export default (socket) => {
     }
   }
 
-  socket.on('get all watchlists', async (callback) => {
+  const getUpdatedWatchlist = async (watchlistId) => {
+    const watchlist = await Watchlist.findById(watchlistId)
+      .populate({ path: 'owners', model: 'Profile' })
+      .populate({ path: 'list.content', model: 'Content' })
+
+    if (!watchlist) return null
+
+    return {
+      _id: watchlist._id,
+      owners: watchlist.owners.map((owner) => formatProfileInformation(owner)),
+      name: watchlist.name,
+      list: watchlist.list
+    }
+  }
+
+  socket.on('get watchlists', async (callback) => {
     try {
       const watchlists = await getUserWatchlists(socket.user.id)
       if (typeof callback === 'function') {
-        callback(watchlist)
+        callback({ watchlists })
       }
     } catch (error) {
       console.log(error)
@@ -56,7 +71,6 @@ export default (socket) => {
       const invites = await Collaborate.find({ watchlist: watchlist._id })
 
       if (typeof callback === 'function') {
-        // include invites in the callback
         callback(watchlist)
       }
     } catch (error) {
@@ -71,26 +85,12 @@ export default (socket) => {
     try {
       const profile = await Profile.findOne({ user: socket.user.id })
 
-      const checkWatchlist = await Watchlist.findOne({
-        name: data.name,
-        owners: { $in: [profile._id] }
-      })
-
-      if (checkWatchlist) {
-        if (typeof callback === 'function') {
-          callback({
-            success: false,
-            error: 'Watchlist already exists with that name'
-          })
-        }
-        return
-      }
-
       const watchlist = await Watchlist.create({
         owners: [profile._id],
         name: data.name,
         list: []
       })
+
       if (data.content) {
         const content = await Content.findById(data.content)
         watchlist.list.push({
@@ -126,12 +126,22 @@ export default (socket) => {
       })
       await watchlist.save()
 
-      const updatedWatchlists = await getUserWatchlists(socket.user.id)
-
       if (typeof callback === 'function') {
-        callback({ success: true, watchlists: updatedWatchlists })
+        callback({ success: true })
       }
-      // emit to all owners of the watchlist
+
+      const updatedWatchlist = await getUpdatedWatchlist(watchlist._id)
+
+      if (updatedWatchlist) {
+        updatedWatchlist.owners.forEach((owner) => {
+          const ownerSocket = getSocket(owner.user.toString())
+          if (ownerSocket) {
+            ownerSocket.emit('update watchlist', {
+              watchlist: updatedWatchlist
+            })
+          }
+        })
+      }
     } catch (error) {
       console.log(error)
       if (typeof callback === 'function') {
@@ -146,19 +156,42 @@ export default (socket) => {
       const removedContentPosition = watchlist.list.find(
         (listItem) => String(listItem.content) === data.content
       )
+
+      if (!removedContentPosition) {
+        throw new Error('Content not found in watchlist')
+      }
+
       watchlist.list.filter(
         (listItem) => String(listItem.content) !== data.content
       )
       watchlist.list.forEach((listItem) => {
-        if (listItem.order > removedContentPosition) {
+        if (listItem.order > removedContentPosition.order) {
           listItem.order--
         }
       })
       await watchlist.save()
-      // callback function
-      // emit to all owners of the watchlist
+
+      if (typeof callback === 'function') {
+        callback({ success: true })
+      }
+
+      const updatedWatchlist = await getUpdatedWatchlist(watchlist._id)
+
+      if (updatedWatchlist) {
+        updatedWatchlist.owners.forEach((owner) => {
+          const ownerSocket = getSocket(owner.user.toString())
+          if (ownerSocket) {
+            ownerSocket.emit('update watchlist', {
+              watchlist: updatedWatchlist
+            })
+          }
+        })
+      }
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error })
+      }
     }
   })
 
@@ -166,25 +199,51 @@ export default (socket) => {
     try {
       const profile = await Profile.findOne({ user: socket.user.id })
       const watchlist = await Watchlist.findById(data.watchlist)
+
+      if (!watchlist) {
+        throw new Error('Watchlist not found')
+      }
+
       watchlist.owners.filter(
         (owner) => owner.toString() !== profile._id.toString()
       )
+      await watchlist.save()
+
+      if (typeof callback === 'function') {
+        callback({ success: true })
+      }
+
       if (watchlist.owners.length === 0) {
         await Watchlist.findByIdAndDelete(data.watchlist)
-        // callback function
       } else {
-        await watchlist.save()
-        // callback function
-        // emit to all owners of the watchlist
+        const updatedWatchlist = await getUpdatedWatchlist(watchlist._id)
+
+        if (updatedWatchlist) {
+          updatedWatchlist.owners.forEach((owner) => {
+            const ownerSocket = getSocket(owner.user.toString())
+            if (ownerSocket) {
+              ownerSocket.emit('update watchlist', {
+                watchlist: updatedWatchlist
+              })
+            }
+          })
+        }
       }
     } catch (error) {
       console.log(error)
+      if (typeof callback === 'function') {
+        callback({ success: false, error: error })
+      }
     }
   })
 
   socket.on('reorder watchlist', async (data, callback) => {
     try {
       const watchlist = await Watchlist.findById(data.watchlist._id)
+
+      if (!watchlist) {
+        throw new Error('Watchlist not found')
+      }
 
       const updatedOrder = {}
       data.watchlist.list.forEach((listItem) => {
@@ -200,7 +259,18 @@ export default (socket) => {
         callback({ success: true })
       }
 
-      // emit to all owners of the watchlist
+      const updatedWatchlist = await getUpdatedWatchlist(watchlist._id)
+
+      if (updatedWatchlist) {
+        updatedWatchlist.owners.forEach((owner) => {
+          const ownerSocket = getSocket(owner.user.toString())
+          if (ownerSocket) {
+            ownerSocket.emit('update watchlist', {
+              watchlist: updatedWatchlist
+            })
+          }
+        })
+      }
     } catch (error) {
       console.log(error)
       if (typeof callback === 'function') {
