@@ -88,10 +88,11 @@ export default (socket) => {
   })
 
   socket.on('update profile', async (data, callback) => {
+    console.log(data)
     let profile = await Profile.findOne({ user: socket.user.id })
     if (profile) {
       profile.country = data.country
-      profile.subscriptions = data.services
+      profile.subscriptions = data.subscriptions
       profile.username = data.username
       await profile.save()
     } else {

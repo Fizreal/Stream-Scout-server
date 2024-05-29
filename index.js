@@ -12,7 +12,7 @@ const app = express()
 const server = http.createServer(app)
 const io = new SocketIO(server, {
   cors: {
-    origin: 'http://localhost:3000'
+    origin: 'https://stream-scout-temp.vercel.app'
   }
 })
 

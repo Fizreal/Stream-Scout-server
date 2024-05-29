@@ -68,15 +68,9 @@ export default (socket) => {
         }
       }
 
-      const invitationErrors = []
-
       data.recipients.forEach(async (recipient) => {
         const recipientProfile = await Profile.findById(recipient)
         if (!recipientProfile) {
-          invitationErrors.push({
-            recipient,
-            error: 'Recipient not found'
-          })
           return
         }
 
@@ -105,7 +99,7 @@ export default (socket) => {
       })
 
       if (typeof callback === 'function') {
-        callback({ success: true, invitationErrors: invitationErrors })
+        callback({ success: true })
       }
     } catch (error) {
       console.log(error)

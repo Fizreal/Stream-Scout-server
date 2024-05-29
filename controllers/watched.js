@@ -7,8 +7,23 @@ export default (socket) => {
 
   socket.on('add to watched', async (data, callback) => {
     try {
-      const profile = await Profile.findOne({ user: socket.user.id })
+      const profile = await Profile.findOne({ user: socket.user.id }).populate({
+        path: 'watched',
+        model: 'Watched'
+      })
       const content = await Content.findById(data.contentId)
+
+      const checkWatched = profile.watched.find((watched) => {
+        return watched.content.toString() === content._id.toString()
+      })
+
+      if (checkWatched) {
+        if (typeof callback === 'function') {
+          callback({ success: true, error: 'Content already watched' })
+        }
+        return
+      }
+
       const watched = await Watched.create({
         content: content._id,
         liked: false,
@@ -45,6 +60,7 @@ export default (socket) => {
     }
   })
 
+  // ice box future feature
   socket.on('update watched tags', async (data, callback) => {
     try {
       const watched = await Watched.findById(data.watched)
