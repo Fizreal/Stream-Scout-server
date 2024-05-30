@@ -1,1 +1,1 @@
-# Movie-server
+# Stream Scout server
